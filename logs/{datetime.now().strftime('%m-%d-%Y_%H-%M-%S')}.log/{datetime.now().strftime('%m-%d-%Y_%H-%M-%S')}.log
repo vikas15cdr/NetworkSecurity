@@ -1,0 +1,3 @@
+[ 2025-08-29 13:31:33,393 ] 63 root - INFO - ETL process started
+[ 2025-08-29 13:31:33,394 ] 64 root - INFO - Total 11055 records found in csv file
+[ 2025-08-29 13:31:42,761 ] 67 root - INFO - Total 11055 records inserted to MongoDB database VIKAS15ML and collection name is Network_Data
