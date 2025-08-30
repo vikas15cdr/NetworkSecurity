@@ -3,5 +3,6 @@ pandas
 numpy
 certifi
 pymongo>=4.3.0
+scikit-learn
 
 ## -e .
