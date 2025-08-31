@@ -93,7 +93,6 @@ class DataValidation:
             train_df = DataValidation.read_data(train_file_path)
             test_df = DataValidation.read_data(test_file_path)
             
-            # --- FIX 4: Use a single master validation flag ---
             is_valid = True
 
             # Validate number of columns
@@ -129,8 +128,7 @@ class DataValidation:
             test_df.to_csv(self.data_validation_config.valid_test_file_path, index=False)
 
             data_validation_artifact = DataValidationArtifact(
-                validation_status=is_valid, # is_valid reflects schema checks, drift is a warning
-                # --- FIX 3: Use the correct paths from the validation config ---
+                validation_status=is_valid, 
                 valid_train_file_path=self.data_validation_config.valid_train_file_path,
                 valid_test_file_path=self.data_validation_config.valid_test_file_path,
                 invalid_train_file_path=None,
