@@ -76,6 +76,7 @@ jobs:
               run: |
                 docker pull ${{steps.login-ecr.outputs.registry}}/${{secrets.ECR_REPOSITORY_NAME}}:latest
 
+
             - name: Stop and remove existing container
               run: |
                 # This command checks if a container named "networksecurity" exists.
