@@ -71,6 +71,12 @@ jobs:
             - name: Login to Amazon ECR
               id: login-ecr
               uses: aws-actions/amazon-ecr-login@v1
+            
+            - name: Clean Previous Images
+              # THIS STEP HAS BEEN MOVED UP to free up disk space *before* pulling.
+              run: |
+                # This prunes all unused images to save disk space.
+                docker image prune -a -f
 
             - name: Pull latest image
               run: |
@@ -87,9 +93,4 @@ jobs:
             - name: Run Docker Image to serve users
               run: |
                 docker run -d -p 8080:8080 --ipc="host" --name=networksecurity ${{steps.login-ecr.outputs.registry}}/${{secrets.ECR_REPOSITORY_NAME}}:latest
-
-            - name: Clean Previous Images
-              run: |
-                # This prunes all unused images to save disk space.
-                docker image prune -a -f
 
