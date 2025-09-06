@@ -74,24 +74,22 @@ jobs:
 
             - name: Pull latest image
               run: |
-                # CORRECTED LINE: Use the output from the login step, NOT the broken secret.
                 docker pull ${{steps.login-ecr.outputs.registry}}/${{secrets.ECR_REPOSITORY_NAME}}:latest
 
-            # - name: Stop and remove existing container
-            #   # This step is CRITICAL for re-deployment. I have uncommented it for you.
-            #   run: |
-            #     if [ $(docker ps -q -f name=networksecurity) ]; then
-            #         docker stop networksecurity
-            #         docker rm networksecurity
-            #     fi
+            - name: Stop and remove existing container
+              # THIS IS THE CORRECTION: This step is now enabled to prevent the "container name in use" error.
+              run: |
+                if [ $(docker ps -q -f name=networksecurity) ]; then
+                    docker stop networksecurity
+                    docker rm networksecurity
+                fi
 
             - name: Run Docker Image to serve users
               run: |
-                # CORRECTED LINE: Use the output from the login step here as well.
                 docker run -d -p 8080:8080 --ipc="host" --name=networksecurity ${{steps.login-ecr.outputs.registry}}/${{secrets.ECR_REPOSITORY_NAME}}:latest
 
             - name: Clean Previous Images
               run: |
-                # This prunes all unused images, not just old versions of your app image.
+                # This prunes all unused images to save disk space.
                 docker image prune -a -f
 
