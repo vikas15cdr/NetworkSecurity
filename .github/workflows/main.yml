@@ -43,6 +43,7 @@ jobs:
             - name: Login to Amazon ECR
               id: login-ecr
               uses: aws-actions/amazon-ecr-login@v1
+
             - name: Build, Tag, and Push Image to Amazon ECR
               env:
                 ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -51,9 +52,9 @@ jobs:
               run: |
                 docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
                 docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-                echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
     Continous-Deployment:
+        name: Continuous Deployment
         needs: build-and-push-ecr-image
         runs-on: self-hosted
         steps:
@@ -73,17 +74,24 @@ jobs:
 
             - name: Pull latest image
               run: |
-                docker pull ${{secrets.AWS_ECR_LOGIN_URI}}/${{secrets.ECR_REPOSITORY_NAME}}:latest
+                # CORRECTED LINE: Use the output from the login step, NOT the broken secret.
+                docker pull ${{steps.login-ecr.outputs.registry}}/${{secrets.ECR_REPOSITORY_NAME}}:latest
 
-          #  - name: Stop and remove existing container
-          #    run: |
-          #      docker ps -q --filter "name=networksecurity" | grep -q . && docker stop networksecurity && docker rm -fv networksecurity
+            # - name: Stop and remove existing container
+            #   # This step is CRITICAL for re-deployment. I have uncommented it for you.
+            #   run: |
+            #     if [ $(docker ps -q -f name=networksecurity) ]; then
+            #         docker stop networksecurity
+            #         docker rm networksecurity
+            #     fi
 
             - name: Run Docker Image to serve users
               run: |
-                docker run -d -p 8080:8080 --ipc="host" --name=networksecurity -e 'AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}' -e 'AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}' -e 'AWS_REGION=${{ secrets.AWS_REGION }}' ${{secrets.AWS_ECR_LOGIN_URI}}/${{secrets.ECR_REPOSITORY_NAME}}:latest
-            - name: Clean Previous Images and Containers
-              run: |
-                docker system prune -f
+                # CORRECTED LINE: Use the output from the login step here as well.
+                docker run -d -p 8080:8080 --ipc="host" --name=networksecurity ${{steps.login-ecr.outputs.registry}}/${{secrets.ECR_REPOSITORY_NAME}}:latest
 
+            - name: Clean Previous Images
+              run: |
+                # This prunes all unused images, not just old versions of your app image.
+                docker image prune -a -f
 
