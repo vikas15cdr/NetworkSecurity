@@ -29,10 +29,6 @@ jobs:
             - name: Checkout Code
               uses: actions/checkout@v3
 
-            - name: Install Utilities
-              run: |
-                sudo apt-get update
-                sudo apt-get install -y jq unzip
             - name: Configure AWS Credentials
               uses: aws-actions/configure-aws-credentials@v2
               with:
@@ -71,11 +67,9 @@ jobs:
             - name: Login to Amazon ECR
               id: login-ecr
               uses: aws-actions/amazon-ecr-login@v1
-            
-            - name: Clean Previous Images
-              # THIS STEP HAS BEEN MOVED UP to free up disk space *before* pulling.
+
+            - name: Clean Previous Images to Free Space
               run: |
-                # This prunes all unused images to save disk space.
                 docker image prune -a -f
 
             - name: Pull latest image
@@ -83,8 +77,9 @@ jobs:
                 docker pull ${{steps.login-ecr.outputs.registry}}/${{secrets.ECR_REPOSITORY_NAME}}:latest
 
             - name: Stop and remove existing container
-              # THIS IS THE CORRECTION: This step is now enabled to prevent the "container name in use" error.
               run: |
+                # This command checks if a container named "networksecurity" exists.
+                # If it does, it stops and removes it, allowing the next step to succeed.
                 if [ $(docker ps -q -f name=networksecurity) ]; then
                     docker stop networksecurity
                     docker rm networksecurity
