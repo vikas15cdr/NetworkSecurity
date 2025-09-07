@@ -25,13 +25,10 @@ jobs:
       - name: Run unit tests
         run: echo "Running unit tests"
 
-  build:
-    name: Build and Push ECR Image
+  build-and-push-ecr-image:
+    name: Continuous Delivery
     needs: integration
     runs-on: ubuntu-latest
-    # This 'outputs' section makes the image URI available to other jobs
-    outputs:
-      image_uri: ${{ steps.build-image.outputs.image }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
@@ -58,14 +55,15 @@ jobs:
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY_NAME }}
           IMAGE_TAG: latest
         run: |
+          # Build a docker container and
+          # push it to ECR so that it can
+          # be deployed to ECS.
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          # Use the modern syntax to set the output variable
-          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
-  deploy:
-    name: Continuous Deployment
-    needs: build # This job now depends on the 'build' job
+  Continuous-Deployment:
+    needs: build-and-push-ecr-image
     runs-on: self-hosted
     steps:
       - name: Checkout
@@ -82,30 +80,23 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
       
-      - name: Stop and remove existing container
-        run: |
-          # This command will stop and remove the container if it exists, but won't fail if it doesn't
-          docker rm -f networksecurity || true
       
-      - name: Pull latest image
+      - name: Pull latest images
         run: |
-          # Use the exact image URI from the build job's output
-          docker pull ${{ needs.build.outputs.image_uri }}
-            
+         docker pull ${{secrets.AWS_ECR_LOGIN_URI}}/${{ secrets.ECR_REPOSITORY_NAME }}:latest
+         
+      #- name: Stop and remove  container if running
+       # run: |
+        # docker ps -q --filter "name=networksecurity" | grep -q . && docker stop networksecurity && docker rm -fv networksecurity
+       
       - name: Run Docker Image to serve users
         run: |
-          # The -e flags pass your secrets securely into the container
-          docker run -d -p 8080:8080 --ipc="host" --name=networksecurity \
-            -e "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" \
-            -e "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
-            -e "AWS_REGION=${{ secrets.AWS_REGION }}" \
-            -e "MLFLOW_TRACKING_URI=https://dagshub.com/vikas1969awz/NetworkSecurity.mlflow" \
-            -e "MLFLOW_TRACKING_USERNAME=vikas1969awz" \
-            -e "MLFLOW_TRACKING_PASSWORD=${{ secrets.DAGSHUB_USER_TOKEN }}" \
-            -e "DAGSHUB_USER_TOKEN=${{ secrets.DAGSHUB_USER_TOKEN }}" \
-            ${{ needs.build.outputs.image_uri }} # Use the exact image URI here as well
-
-      - name: Clean up unused Docker images
+         docker run -d -p 8080:8080 --ipc="host" --name=networksecurity \
+         -e 'AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}' \
+         -e 'AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}' \
+         -e 'AWS_REGION=${{ secrets.AWS_REGION }}' \
+         -e 'DAGSHUB_USER_TOKEN=${{ secrets.DAGSHUB_USER_TOKEN }}' \
+         ${{ secrets.AWS_ECR_LOGIN_URI }}/${{ secrets.ECR_REPOSITORY_NAME }}:latest
+      - name: Clean previous images and containers
         run: |
-          docker image prune -f
-
+         docker system prune -f
